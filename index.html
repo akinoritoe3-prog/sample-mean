@@ -1,1 +1,910 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>標本平均 学習シミュレーター</title>
+  <style>
+    /* ==========================================
+       デザイントークン（CSS変数）
+       ========================================== */
+    :root {
+      --bg-page: #f4f7fb;
+      --bg-card: #ffffff;
+      --bg-subtle: #f8fafc;
+      --bg-header-cell: #f1f5f9;
+      --bg-highlight: #eff6ff;
+      --border-color: #e2e8f0;
+      --border-strong: #cbd5e1;
 
+      --text-primary: #0f172a;
+      --text-secondary: #475569;
+      --text-muted: #94a3b8;
+
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --primary-active: #1e40af;
+      --primary-ring: rgba(37, 99, 235, 0.28);
+
+      --accent-sky: #0369a1;
+      --accent-sky-bg: #e0f2fe;
+
+      --danger: #e11d48;
+      --danger-hover: #be123c;
+
+      --radius-lg: 16px;
+      --radius-md: 12px;
+      --radius-sm: 8px;
+
+      --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+      --shadow-md: 0 4px 12px rgba(37, 99, 235, 0.16);
+      --shadow-modal: 0 20px 40px rgba(15, 23, 42, 0.22);
+    }
+
+    /* ==========================================
+       ベースリセット & タイポグラフィ
+       ========================================== */
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+      background-color: var(--bg-page);
+      color: var(--text-primary);
+      line-height: 1.6;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ==========================================
+       レイアウトコンテナ
+       ========================================== */
+    .container {
+      width: 100%;
+      max-width: 880px;
+      margin: 0 auto;
+      padding: 20px 16px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    @media (min-width: 640px) {
+      .container {
+        padding: 32px 24px 48px;
+        gap: 24px;
+      }
+    }
+
+    /* ==========================================
+       カード共通スタイル
+       ========================================== */
+    .card {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* ==========================================
+       ヘッダー
+       ========================================== */
+    .app-header {
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    @media (min-width: 640px) {
+      .app-header {
+        padding: 24px;
+      }
+    }
+
+    .header-icon {
+      flex-shrink: 0;
+      width: 44px;
+      height: 44px;
+      border-radius: var(--radius-md);
+      background-color: var(--primary);
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .header-icon svg {
+      width: 24px;
+      height: 24px;
+    }
+
+    .header-text h1 {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: var(--text-primary);
+    }
+
+    @media (min-width: 640px) {
+      .header-text h1 {
+        font-size: 1.5rem;
+      }
+    }
+
+    .header-text p {
+      margin: 4px 0 0;
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+    }
+
+    /* ==========================================
+       統計カードエリア（3列グリッド）
+       ========================================== */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+    }
+
+    @media (min-width: 640px) {
+      .stats-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+      }
+    }
+
+    .stat-card {
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .stat-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .stat-label {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    .stat-label .math-italic {
+      font-style: italic;
+      font-family: Georgia, "Times New Roman", serif;
+    }
+
+    .stat-badge-icon {
+      width: 30px;
+      height: 30px;
+      border-radius: var(--radius-sm);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.85rem;
+      font-weight: 700;
+    }
+
+    .icon-count {
+      background-color: var(--bg-header-cell);
+      color: var(--text-secondary);
+    }
+
+    .icon-latest {
+      background-color: var(--accent-sky-bg);
+      color: var(--accent-sky);
+    }
+
+    .stat-value-wrap {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 800;
+      line-height: 1.15;
+      font-variant-numeric: tabular-nums;
+      display: inline-block;
+      transition: transform 0.18s ease;
+      transform-origin: left center;
+    }
+
+    @media (min-width: 640px) {
+      .stat-value {
+        font-size: 2.25rem;
+      }
+    }
+
+    .stat-value.pop {
+      transform: scale(1.08);
+    }
+
+    .stat-unit {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    .stat-value-latest {
+      color: var(--accent-sky);
+    }
+
+    /* 標本平均カード（強調スタイル） */
+    .stat-card-mean {
+      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+      border-color: #1d4ed8;
+      color: #ffffff;
+      box-shadow: var(--shadow-md);
+    }
+
+    .stat-card-mean .stat-label {
+      color: #dbeafe;
+    }
+
+    .stat-card-mean .stat-badge-icon {
+      background-color: rgba(255, 255, 255, 0.18);
+      color: #ffffff;
+    }
+
+    .stat-card-mean .stat-value {
+      color: #ffffff;
+    }
+
+    /* ==========================================
+       操作パネル
+       ========================================== */
+    .controls-panel {
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    @media (min-width: 640px) {
+      .controls-panel {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+      }
+    }
+
+    .btn {
+      appearance: none;
+      border: none;
+      border-radius: var(--radius-md);
+      font-family: inherit;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background-color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .btn:focus-visible {
+      outline: 3px solid var(--primary-ring);
+      outline-offset: 2px;
+    }
+
+    .btn-primary {
+      background-color: var(--primary);
+      color: #ffffff;
+      font-size: 1.125rem;
+      padding: 15px 32px;
+      min-height: 54px;
+      box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+    }
+
+    @media (min-width: 640px) {
+      .btn-primary {
+        min-width: 240px;
+      }
+    }
+
+    .btn-primary:hover {
+      background-color: var(--primary-hover);
+    }
+
+    .btn-primary:active {
+      background-color: var(--primary-active);
+      transform: scale(0.98);
+    }
+
+    .btn-secondary {
+      background-color: var(--bg-header-cell);
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+      font-weight: 600;
+      padding: 13px 20px;
+      min-height: 48px;
+      border: 1px solid var(--border-color);
+    }
+
+    .btn-secondary:hover {
+      background-color: #e2e8f0;
+      color: var(--text-primary);
+    }
+
+    .btn-secondary:active {
+      transform: scale(0.98);
+    }
+
+    .btn svg {
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+    }
+
+    /* ==========================================
+       抽出記録テーブル
+       ========================================== */
+    .table-section {
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .table-header-bar {
+      padding: 16px 20px;
+      background-color: var(--bg-subtle);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .table-title {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .table-title svg {
+      width: 18px;
+      height: 18px;
+      color: var(--primary);
+    }
+
+    .count-pill {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+      background-color: var(--bg-header-cell);
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .table-scroll-container {
+      height: 320px;
+      overflow-y: auto;
+      background-color: var(--bg-card);
+    }
+
+    @media (min-width: 640px) {
+      .table-scroll-container {
+        height: 380px;
+      }
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background-color: var(--bg-header-cell);
+      color: var(--text-secondary);
+      font-size: 0.825rem;
+      font-weight: 700;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border-color);
+      text-align: right;
+    }
+
+    thead th:first-child {
+      width: 24%;
+      text-align: center;
+    }
+
+    thead th:nth-child(2) {
+      width: 36%;
+    }
+
+    thead th:nth-child(3) {
+      width: 40%;
+    }
+
+    tbody td {
+      padding: 12px 14px;
+      font-size: 0.95rem;
+      border-bottom: 1px solid #f1f5f9;
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+    }
+
+    @media (min-width: 640px) {
+      thead th, tbody td {
+        padding: 13px 24px;
+      }
+    }
+
+    tbody td:first-child {
+      text-align: center;
+      color: var(--text-secondary);
+      font-weight: 600;
+    }
+
+    tbody td:nth-child(2) {
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    tbody td:nth-child(3) {
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    tbody tr.latest-row {
+      background-color: var(--bg-highlight);
+      animation: rowFlash 0.5s ease-out;
+    }
+
+    @keyframes rowFlash {
+      0% {
+        background-color: #dbeafe;
+      }
+      100% {
+        background-color: var(--bg-highlight);
+      }
+    }
+
+    .empty-cell {
+      text-align: center !important;
+      padding: 56px 16px !important;
+      color: var(--text-muted) !important;
+      font-weight: 500 !important;
+      border-bottom: none !important;
+    }
+
+    /* ==========================================
+       カスタム確認モーダル（window.confirm不使用）
+       ========================================== */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      background-color: rgba(15, 23, 42, 0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .modal-backdrop.is-open {
+      display: flex;
+    }
+
+    .modal-dialog {
+      background-color: var(--bg-card);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-modal);
+      border: 1px solid var(--border-color);
+      width: 100%;
+      max-width: 380px;
+      padding: 24px;
+    }
+
+    .modal-title {
+      margin: 0;
+      font-size: 1.125rem;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .modal-desc {
+      margin: 10px 0 0;
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+    }
+
+    .modal-actions {
+      margin-top: 22px;
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .btn-modal-cancel {
+      background-color: var(--bg-header-cell);
+      color: var(--text-secondary);
+      padding: 10px 18px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      border-radius: var(--radius-sm);
+    }
+
+    .btn-modal-cancel:hover {
+      background-color: #e2e8f0;
+      color: var(--text-primary);
+    }
+
+    .btn-modal-confirm {
+      background-color: var(--danger);
+      color: #ffffff;
+      padding: 10px 18px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      border-radius: var(--radius-sm);
+    }
+
+    .btn-modal-confirm:hover {
+      background-color: var(--danger-hover);
+    }
+  </style>
+</head>
+<body>
+
+  <main class="container">
+    <!-- ヘッダー -->
+    <header class="card app-header">
+      <div class="header-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="20" x2="18" y2="10"></line>
+          <line x1="12" y1="20" x2="12" y2="4"></line>
+          <line x1="6" y1="20" x2="6" y2="14"></line>
+        </svg>
+      </div>
+      <div class="header-text">
+        <h1>標本平均 学習シミュレーター</h1>
+        <p>「抽出」ボタンを押してデータを1つずつ取り出し、標本平均の変化を観察しましょう。</p>
+      </div>
+    </header>
+
+    <!-- 統計カードエリア -->
+    <section class="stats-grid" aria-label="統計情報">
+      <!-- 標本サイズ -->
+      <div class="card stat-card">
+        <div class="stat-card-header">
+          <span class="stat-label">標本サイズ (<span class="math-italic">n</span>)</span>
+          <span class="stat-badge-icon icon-count" aria-hidden="true">#</span>
+        </div>
+        <div class="stat-value-wrap">
+          <span id="stat-count" class="stat-value">0</span>
+          <span class="stat-unit">個</span>
+        </div>
+      </div>
+
+      <!-- 最後に抽出した数 -->
+      <div class="card stat-card">
+        <div class="stat-card-header">
+          <span class="stat-label">最後に抽出した数</span>
+          <span class="stat-badge-icon icon-latest" aria-hidden="true">+</span>
+        </div>
+        <div class="stat-value-wrap">
+          <span id="stat-latest" class="stat-value stat-value-latest">—</span>
+        </div>
+      </div>
+
+      <!-- 標本平均 -->
+      <div class="card stat-card stat-card-mean">
+        <div class="stat-card-header">
+          <span class="stat-label">標本平均</span>
+          <span class="stat-badge-icon" aria-hidden="true">x̄</span>
+        </div>
+        <div class="stat-value-wrap">
+          <span id="stat-mean" class="stat-value">—</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 操作エリア -->
+    <section class="card controls-panel" aria-label="操作ボタン">
+      <button id="btn-draw" type="button" class="btn btn-primary">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 5v14"></path>
+          <path d="m19 12-7 7-7-7"></path>
+        </svg>
+        <span>抽出</span>
+      </button>
+
+      <button id="btn-reset" type="button" class="btn btn-secondary">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+          <path d="M3 3v5h5"></path>
+        </svg>
+        <span>リセット</span>
+      </button>
+    </section>
+
+    <!-- 抽出記録テーブル -->
+    <section class="card table-section" aria-label="抽出記録">
+      <div class="table-header-bar">
+        <h2 class="table-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="3" y1="9" x2="21" y2="9"></line>
+            <line x1="9" y1="21" x2="9" y2="9"></line>
+          </svg>
+          抽出記録
+        </h2>
+        <span id="table-badge" class="count-pill">0 件</span>
+      </div>
+
+      <div id="table-scroll-container" class="table-scroll-container">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">回数</th>
+              <th scope="col">抽出した数</th>
+              <th scope="col">その時点の標本平均</th>
+            </tr>
+          </thead>
+          <tbody id="result-tbody">
+            <tr id="empty-row">
+              <td colspan="3" class="empty-cell">「抽出」ボタンを押すとデータが記録されます</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- リセット確認用カスタムモーダル -->
+  <div id="reset-modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-dialog">
+      <h3 id="modal-title" class="modal-title">抽出データをリセットしますか？</h3>
+      <p class="modal-desc">これまでに記録されたすべてのデータと標本平均が消去されます。</p>
+      <div class="modal-actions">
+        <button id="btn-modal-cancel" type="button" class="btn btn-modal-cancel">キャンセル</button>
+        <button id="btn-modal-confirm" type="button" class="btn btn-modal-confirm">リセットする</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- body末尾に配置し、すべてのDOM要素が確実に存在する状態でスクリプトを実行 -->
+  <script>
+    (function () {
+      'use strict';
+
+      // ==========================================
+      // 状態管理変数
+      // ==========================================
+      let sampleCount = 0;         // 標本サイズ (n)
+      let sampleSum = 0;           // 抽出した数の合計（整数で保持して浮動小数点誤差を防止）
+      let hasResetOnce = false;    // 1回以上リセットが実行されたかどうかのフラグ
+      let initialFixedValue = null;// 初回リセット前の1回目に決定された値
+
+      // ==========================================
+      // DOM要素の取得（すべてのIDを厳密に一致）
+      // ==========================================
+      const statCountEl = document.getElementById('stat-count');
+      const statLatestEl = document.getElementById('stat-latest');
+      const statMeanEl = document.getElementById('stat-mean');
+      const tableBadgeEl = document.getElementById('table-badge');
+
+      const btnDraw = document.getElementById('btn-draw');
+      const btnReset = document.getElementById('btn-reset');
+
+      const tableScrollContainer = document.getElementById('table-scroll-container');
+      const resultTbody = document.getElementById('result-tbody');
+
+      const resetModal = document.getElementById('reset-modal');
+      const btnModalCancel = document.getElementById('btn-modal-cancel');
+      const btnModalConfirm = document.getElementById('btn-modal-confirm');
+
+      // ==========================================
+      // 数値抽出・計算ロジック
+      // ==========================================
+
+      /**
+       * 母集団（-100〜100の整数・全201通り）から一様ランダムに1つの整数を返す
+       * @returns {number}
+       */
+      function generateRandomInteger() {
+        return Math.floor(Math.random() * 201) - 100;
+      }
+
+      /**
+       * 現在の状態に応じて次に抽出する数を返す
+       * - 初回リセット前（hasResetOnce === false）：1回目のみランダム決定し、2回目以降はその値を連続して返す
+       * - 1回リセット後（hasResetOnce === true）：毎回独立にランダムな整数を返す
+       * @returns {number}
+       */
+      function drawNextValue() {
+        if (!hasResetOnce) {
+          if (initialFixedValue === null) {
+            initialFixedValue = generateRandomInteger();
+          }
+          return initialFixedValue;
+        }
+        return generateRandomInteger();
+      }
+
+      /**
+       * 標本平均を小数第2位までの文字列に整形する（-0.00 の表示を防止）
+       * @param {number} mean
+       * @returns {string}
+       */
+      function formatMean(mean) {
+        const normalized = Math.abs(mean) < 0.000001 ? 0 : mean;
+        return normalized.toFixed(2);
+      }
+
+      /**
+       * 統計カードの数値更新時に軽い拡大アニメーションを付与する
+       * @param {HTMLElement} element
+       */
+      function triggerPopAnimation(element) {
+        if (!element) return;
+        element.classList.remove('pop');
+        // リフローを発生させてアニメーションを確実に再適用
+        void element.offsetWidth;
+        element.classList.add('pop');
+        window.setTimeout(function () {
+          element.classList.remove('pop');
+        }, 160);
+      }
+
+      // ==========================================
+      // 抽出ボタンの処理
+      // ==========================================
+      function handleDraw() {
+        try {
+          // 1. 次の数値を抽出し、統計量を更新
+          const drawnValue = drawNextValue();
+          sampleCount += 1;
+          sampleSum += drawnValue;
+          const currentMean = sampleSum / sampleCount;
+          const formattedMean = formatMean(currentMean);
+
+          // 2. 統計カードと件数バッジを更新
+          statCountEl.textContent = sampleCount.toLocaleString('ja-JP');
+          statLatestEl.textContent = String(drawnValue);
+          statMeanEl.textContent = formattedMean;
+          tableBadgeEl.textContent = sampleCount.toLocaleString('ja-JP') + ' 件';
+
+          triggerPopAnimation(statCountEl);
+          triggerPopAnimation(statLatestEl);
+          triggerPopAnimation(statMeanEl);
+
+          // 3. 初期プレースホルダー行が存在する場合は削除
+          const emptyRow = document.getElementById('empty-row');
+          if (emptyRow) {
+            emptyRow.remove();
+          }
+
+          // 4. 直前の最新行ハイライトを解除
+          const previousLatest = resultTbody.querySelector('tr.latest-row');
+          if (previousLatest) {
+            previousLatest.classList.remove('latest-row');
+          }
+
+          // 5. 新しい記録行を作成してテーブル末尾へ追加
+          const tr = document.createElement('tr');
+          tr.className = 'latest-row';
+
+          const tdCount = document.createElement('td');
+          tdCount.textContent = String(sampleCount);
+
+          const tdValue = document.createElement('td');
+          tdValue.textContent = String(drawnValue);
+
+          const tdMean = document.createElement('td');
+          tdMean.textContent = formattedMean;
+
+          tr.appendChild(tdCount);
+          tr.appendChild(tdValue);
+          tr.appendChild(tdMean);
+          resultTbody.appendChild(tr);
+
+          // 6. テーブルのスクロール領域を最下部へ自動スクロール
+          tableScrollContainer.scrollTop = tableScrollContainer.scrollHeight;
+        } catch (error) {
+          console.error('抽出処理中にエラーが発生しました:', error);
+        }
+      }
+
+      // ==========================================
+      // リセットおよびモーダル制御
+      // ==========================================
+      function openResetModal() {
+        // データが0件のときは確認モーダルを出さずに静かに通常モードへ移行
+        if (sampleCount === 0) {
+          hasResetOnce = true;
+          initialFixedValue = null;
+          return;
+        }
+        resetModal.classList.add('is-open');
+        btnModalCancel.focus();
+      }
+
+      function closeResetModal() {
+        resetModal.classList.remove('is-open');
+      }
+
+      function executeReset() {
+        try {
+          // 状態を初期化し、通常ランダムモードへ移行（2回目以降も維持）
+          sampleCount = 0;
+          sampleSum = 0;
+          hasResetOnce = true;
+          initialFixedValue = null;
+
+          // 統計表示を初期値に戻す
+          statCountEl.textContent = '0';
+          statLatestEl.textContent = '—';
+          statMeanEl.textContent = '—';
+          tableBadgeEl.textContent = '0 件';
+
+          // テーブル内容をクリアして初期プレースホルダーを再生成
+          resultTbody.innerHTML = '';
+          const emptyTr = document.createElement('tr');
+          emptyTr.id = 'empty-row';
+          const emptyTd = document.createElement('td');
+          emptyTd.colSpan = 3;
+          emptyTd.className = 'empty-cell';
+          emptyTd.textContent = '「抽出」ボタンを押すとデータが記録されます';
+          emptyTr.appendChild(emptyTd);
+          resultTbody.appendChild(emptyTr);
+
+          // モーダルを閉じて抽出ボタンへフォーカスを戻す
+          closeResetModal();
+          btnDraw.focus();
+        } catch (error) {
+          console.error('リセット処理中にエラーが発生しました:', error);
+        }
+      }
+
+      // ==========================================
+      // イベントリスナーの登録
+      // ==========================================
+      btnDraw.addEventListener('click', handleDraw);
+      btnReset.addEventListener('click', openResetModal);
+      btnModalCancel.addEventListener('click', closeResetModal);
+      btnModalConfirm.addEventListener('click', executeReset);
+
+      // モーダル背景クリックで閉じる
+      resetModal.addEventListener('click', function (event) {
+        if (event.target === resetModal) {
+          closeResetModal();
+        }
+      });
+
+      // Escapeキーでモーダルを閉じる
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && resetModal.classList.contains('is-open')) {
+          closeResetModal();
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
